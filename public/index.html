@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HaidarAll - Multi Tools</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; margin-bottom: 20px; }
+        
+        /* Tabs Navigation */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: thin; }
+        .tab-btn { padding: 10px 20px; border: none; background: #e4e6eb; cursor: pointer; border-radius: 5px; white-space: nowrap; font-weight: 600; color: #555; transition: 0.2s; }
+        .tab-btn.active { background: #007bff; color: white; }
+        .tab-btn:hover:not(.active) { background: #d8dadf; }
+        
+        /* Content Area */
+        .content { display: none; animation: fadeIn 0.3s; }
+        .content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Form Elements */
+        input, select, textarea { width: 100%; padding: 12px; margin-top: 10px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+        input:focus, textarea:focus { outline: none; border-color: #007bff; }
+
+        /* Buttons */
+        button.action-btn { width: 100%; padding: 12px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 5px; font-size: 16px; font-weight: bold; transition: background 0.2s; }
+        button.action-btn:hover { background: #0056b3; }
+        button.dl-btn { background: #28a745; margin-top: 10px; text-decoration: none; display: block; text-align: center; }
+        button.dl-btn:hover { background: #218838; }
+
+        /* Results Box */
+        .result-box { margin-top: 20px; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; min-height: 50px; word-wrap: break-word; }
+        
+        /* Specific Items */
+        .surah-item { cursor: pointer; padding: 10px; border-bottom: 1px solid #eee; transition: background 0.2s; }
+        .surah-item:hover { background: #e9ecef; }
+        img.generated-img { max-width: 100%; border-radius: 5px; margin-top: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        /* Download Links */
+        a.download-link {
+            display: block;
+            background: #28a745;
+            color: white;
+            padding: 10px;
+            margin: 5px 0;
+            text-decoration: none;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+        a.download-link:hover { background: #218838; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>HaidarAll Tools</h1>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('downloader')">AIO Downloader</button>
+        <button class="tab-btn" onclick="openTab('blog')">Blog AI</button>
+        <button class="tab-btn" onclick="openTab('quran')">Al-Quran</button>
+        <button class="tab-btn" onclick="openTab('tempmail')">Temp Mail</button>
+        <button class="tab-btn" onclick="openTab('image')">Image Gen</button>
+    </div>
+
+    <div id="downloader" class="content active">
+        <h3>All-in-One Downloader</h3>
+        <p style="color:#666; font-size:0.9em;">Support: YouTube, TikTok, IG, FB, Twitter</p>
+        <input type="text" id="dl-url" placeholder="Tempel link video di sini (https://...)">
+        <button class="action-btn" onclick="downloadVideo()">Proses Video</button>
+        <div id="dl-result" class="result-box">Hasil download akan muncul di sini...</div>
+    </div>
+
+    <div id="blog" class="content">
+        <h3>AI Blog Generator</h3>
+        <input type="text" id="blog-topic" placeholder="Topik Blog (misal: Tips Belajar Coding)">
+        <select id="blog-lang">
+            <option value="Indonesian">Bahasa Indonesia</option>
+            <option value="English">English</option>
+            <option value="Javanese">Bahasa Jawa</option>
+            <option value="Sundanese">Bahasa Sunda</option>
+        </select>
+        <button class="action-btn" onclick="generateBlog()">Buat Artikel</button>
+        <div id="blog-result" class="result-box"></div>
+    </div>
+
+    <div id="quran" class="content">
+        <h3>TafsirWeb & Quran</h3>
+        <button class="action-btn" onclick="loadSurahList()">Muat Daftar Surat</button>
+        <div id="surah-list" style="max-height: 300px; overflow-y: auto; margin-top:10px; border:1px solid #ddd; display:none;"></div>
+        <div id="ayat-container" class="result-box" style="display:none;"></div>
+    </div>
+
+    <div id="tempmail" class="content">
+        <h3>Temporary Email</h3>
+        <button class="action-btn" onclick="createEmail()">Buat Email Baru</button>
+        <div id="email-info" class="result-box">Klik tombol di atas untuk membuat email.</div>
+        
+        <h4 style="margin-top:20px;">Inbox</h4>
+        <button class="action-btn" style="background:#17a2b8;" onclick="checkInbox()">Refresh Inbox</button>
+        <div id="inbox-list" class="result-box">Belum ada pesan masuk.</div>
+    </div>
+
+    <div id="image" class="content">
+        <h3>Text to Image</h3>
+        <textarea id="img-prompt" rows="3" placeholder="Deskripsi gambar (contoh: pemandangan gunung futuristik)..."></textarea>
+        <button class="action-btn" onclick="generateImage()">Buat Gambar</button>
+        <div id="img-result" class="result-box"></div>
+    </div>
+</div>
+
+<script>
+    const API = 'http://localhost:3000/api'; // Pastikan port sesuai dengan server.js
+    let currentEmail = '';
+
+    // Fungsi Ganti Tab
+    function openTab(id) {
+        document.querySelectorAll('.content').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        
+        // Cari tombol tab yang diklik dan set active
+        const tabs = document.querySelectorAll('.tab-btn');
+        tabs.forEach(btn => {
+            if(btn.innerText.toLowerCase().includes(id.replace('image', 'image gen').replace('quran', 'al-quran'))) return; // simple match check
+            if(btn.getAttribute('onclick').includes(id)) btn.classList.add('active');
+        });
+    }
+
+    // --- 1. DOWNLOADER (UPDATED FORCE DOWNLOAD) ---
+    async function downloadVideo() {
+        const url = document.getElementById('dl-url').value;
+        const resDiv = document.getElementById('dl-result');
+        
+        if(!url) return alert("Masukkan URL dulu!");
+
+        resDiv.innerHTML = "⏳ Sedang memproses... Mohon tunggu.";
+        
+        try {
+            const req = await fetch(`${API}/download`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url })
+            });
+            const res = await req.json();
+            
+            if(!res.title) {
+                resDiv.innerHTML = `<span style="color:red;">❌ Gagal: ${res.message || "URL tidak didukung atau server sibuk."}</span>`;
+                return;
+            }
+            
+            // Bersihkan nama file untuk keamanan URL
+            const cleanName = res.title.replace(/[^a-zA-Z0-9 ]/g, "").substring(0, 50);
+
+            let html = `<h4>${res.title}</h4>
+                        <p style="font-size:0.9em; margin-bottom:10px;">Platform: <b>${res.platform.toUpperCase()}</b></p>
+                        <hr>`;
+            
+            if (res.downloads && res.downloads.length > 0) {
+                res.downloads.forEach(d => {
+                    // Tentukan ekstensi file
+                    let ext = "mp4"; 
+                    if(d.label.includes("Audio") || d.label.includes("mp3")) ext = "mp3";
+                    else if(d.label.includes("Image") || d.label.includes("jpg")) ext = "jpg";
+
+                    const filename = `${cleanName}.${ext}`;
+                    
+                    // Menggunakan Endpoint /api/stream agar otomatis download
+                    const proxyUrl = `${API}/stream?url=${encodeURIComponent(d.url)}&name=${encodeURIComponent(filename)}`;
+
+                    html += `<a href="${proxyUrl}" class="download-link">
+                                ⬇️ Download ${d.label} (${d.size})
+                             </a>`;
+                });
+            } else {
+                html += `<p>Media tidak ditemukan.</p>`;
+            }
+
+            resDiv.innerHTML = html;
+
+        } catch (e) { 
+            resDiv.innerHTML = `<span style="color:red;">Error System: ${e.message}</span>`; 
+        }
+    }
+
+    // --- 2. BLOG GENERATOR ---
+    async function generateBlog() {
+        const topic = document.getElementById('blog-topic').value;
+        const lang = document.getElementById('blog-lang').value;
+        const resDiv = document.getElementById('blog-result');
+        
+        if(!topic) return alert("Isi topik dulu!");
+
+        resDiv.innerHTML = "✍️ Sedang menulis artikel... (Proses AI bisa memakan waktu 10-30 detik)";
+        
+        try {
+            const req = await fetch(`${API}/blog`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ topic, language: lang })
+            });
+            const res = await req.json();
+            if(res.success && res.content) {
+                // Format text biar rapi (ganti baris baru jadi <br>)
+                resDiv.innerHTML = res.content.replace(/\n/g, '<br>');
+            } else {
+                resDiv.innerHTML = "Gagal membuat konten. Coba topik lain.";
+            }
+        } catch(e) { resDiv.innerHTML = "Error koneksi."; }
+    }
+
+    // --- 3. QURAN ---
+    async function loadSurahList() {
+        const listDiv = document.getElementById('surah-list');
+        const ayatDiv = document.getElementById('ayat-container');
+        
+        listDiv.style.display = 'block';
+        ayatDiv.style.display = 'none';
+        listDiv.innerHTML = "📖 Memuat daftar surat...";
+        
+        try {
+            const req = await fetch(`${API}/quran/list`);
+            const data = await req.json();
+            
+            listDiv.innerHTML = "";
+            data.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'surah-item';
+                div.innerText = s.name;
+                div.onclick = () => loadAyat(s.url, s.name);
+                listDiv.appendChild(div);
+            });
+        } catch (e) { listDiv.innerHTML = "Gagal memuat daftar surat."; }
+    }
+
+    async function loadAyat(url, name) {
+        const listDiv = document.getElementById('surah-list');
+        const ayatDiv = document.getElementById('ayat-container');
+        
+        listDiv.style.display = 'none'; // Sembunyikan list
+        ayatDiv.style.display = 'block';
+        ayatDiv.innerHTML = `⏳ Memuat ayat surat <b>${name}</b>...`;
+        
+        // Tombol kembali
+        const backBtn = `<button onclick="loadSurahList()" style="margin-bottom:10px; padding:5px 10px; background:#6c757d; color:white; border:none; border-radius:3px; cursor:pointer;">&larr; Kembali ke Daftar</button>`;
+
+        try {
+            const req = await fetch(`${API}/quran/detail`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url })
+            });
+            const data = await req.json();
+            
+            let html = `${backBtn}<h3>${name}</h3>`;
+            data.forEach(d => {
+                html += `<div style="margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                            <p style="text-align:right; font-size:1.4em; font-family:'Traditional Arabic', serif; color:#000;"><b>${d.arab}</b> <span style="font-size:0.6em; border:1px solid #ccc; border-radius:50%; padding:2px 6px;">${d.ayat}</span></p>
+                            <p style="color:#555; font-style:italic;">"${d.artinya}"</p>
+                         </div>`;
+            });
+            ayatDiv.innerHTML = html;
+        } catch (e) { ayatDiv.innerHTML = `${backBtn}<br>Gagal memuat ayat.`; }
+    }
+
+    // --- 4. TEMP MAIL ---
+    async function createEmail() {
+        const infoDiv = document.getElementById('email-info');
+        infoDiv.innerHTML = "Sedang membuat email...";
+        
+        try {
+            const res = await fetch(`${API}/tempmail/create`);
+            const data = await res.json();
+            if(data.email) {
+                currentEmail = data.email;
+                infoDiv.innerHTML = `<div style="background:#d4edda; color:#155724; padding:10px; border-radius:5px;">
+                                        📧 Email: <b>${data.email}</b><br>
+                                        🔑 Token: ${data.token}
+                                     </div>`;
+            } else {
+                infoDiv.innerHTML = "Gagal membuat email.";
+            }
+        } catch (e) { infoDiv.innerHTML = "Error koneksi."; }
+    }
+    
+    async function checkInbox() {
+        if(!currentEmail) return alert("Buat email terlebih dahulu!");
+        
+        const div = document.getElementById('inbox-list');
+        div.innerHTML = "🔄 Mengecek pesan masuk...";
+        
+        try {
+            const res = await fetch(`${API}/tempmail/inbox/${currentEmail}`);
+            const msgs = await res.json();
+            
+            if(msgs.length === 0) {
+                div.innerHTML = "📭 Inbox kosong.";
+            } else {
+                div.innerHTML = msgs.map(m => 
+                    `<div style="background:white; border:1px solid #ddd; padding:10px; margin-bottom:10px; border-radius:5px;">
+                        <b>From:</b> ${m.from}<br>
+                        <b>Subject:</b> ${m.subject}<br>
+                        <div style="background:#f8f9fa; padding:10px; margin-top:5px; border-radius:3px;">${m.body_text}</div>
+                    </div>`
+                ).join('');
+            }
+        } catch (e) { div.innerHTML = "Gagal cek inbox."; }
+    }
+
+    // --- 5. IMAGE GEN ---
+    async function generateImage() {
+        const prompt = document.getElementById('img-prompt').value;
+        const resDiv = document.getElementById('img-result');
+        
+        if(!prompt) return alert("Masukkan deskripsi gambar!");
+        
+        resDiv.innerHTML = "🎨 Sedang menggambar... (Tunggu sebentar)";
+        
+        try {
+            const req = await fetch(`${API}/image`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ prompt })
+            });
+            const res = await req.json();
+            
+            if(res.success) {
+                // Handle base64 prefix
+                let src = res.image.includes('base64') ? res.image : `data:image/png;base64,${res.image}`;
+                resDiv.innerHTML = `<img src="${src}" class="generated-img"><br>
+                                    <a href="${src}" download="haidar_image.png" class="action-btn" style="text-decoration:none; display:block; text-align:center; margin-top:10px; background:#6c757d;">Download Gambar</a>`;
+            } else {
+                resDiv.innerHTML = "Gagal membuat gambar.";
+            }
+        } catch (e) { resDiv.innerHTML = "Error koneksi."; }
+    }
+</script>
+
+</body>
+</html>
