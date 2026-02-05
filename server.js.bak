@@ -1,0 +1,280 @@
+const express = require('express');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const cors = require('cors');
+const path = require('path');
+
+const app = express();
+const PORT = 3000;
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public')); // Untuk file frontend nanti
+
+// --- HEADERS COMMON ---
+const COMMON_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+};
+
+// ==========================================
+// 1. AIO DOWNLOADER (FIXED)
+// ==========================================
+app.post('/api/download', async (req, res) => {
+    const { url } = req.body;
+    
+    // Log request masuk biar ketahuan di terminal
+    console.log(`[AIO] Request masuk untuk URL: ${url}`);
+
+    if (!url) return res.status(400).json({ status: false, message: "URL is required" });
+
+    // 1. Logika Deteksi Platform (Sama persis dengan aio2.js)
+    let currentPlatform = "youtube";
+    if (url.includes("facebook.com") || url.includes("fb.watch")) currentPlatform = "facebook";
+    else if (url.includes("tiktok.com")) currentPlatform = "tiktok";
+    else if (url.includes("instagram.com")) currentPlatform = "instagram";
+    else if (url.includes("twitter.com") || url.includes("x.com")) currentPlatform = "twitter";
+
+    // 2. Headers WAJIB (Harus persis seperti ini agar tidak ditolak server)
+    const headers = {
+        "Authority": "fsmvid.com",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://fsmvid.com",
+        "Referer": "https://fsmvid.com/",
+        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    };
+
+    const payload = {
+        "url": url,
+        "platform": currentPlatform, 
+        "isHomepage": true
+    };
+
+    try {
+        const response = await axios.post("https://fsmvid.com/api/proxy", payload, { headers });
+        const data = response.data;
+
+        // Cek status dari API luar
+        if (data.status !== 'success') {
+            console.error("[AIO] Gagal dari pusat:", data);
+            return res.json({ status: false, message: "Server pusat menolak URL ini." });
+        }
+
+        const medias = data.medias || [];
+        const cleanTitle = (data.title || "No Title").replace(/\n/g, " ").substring(0, 100);
+
+        // Format hasil sesuai script asli
+        const result = {
+            author: "Haidar / Kink Aufa",
+            title: cleanTitle,
+            platform: currentPlatform,
+            duration: data.duration || 0,
+            downloads: medias.map(media => {
+                let label = "";
+                // Logika label dari aio2.js
+                if (media.type === 'audio') {
+                    const kbps = media.bitrate ? Math.floor(media.bitrate / 1000) : "?";
+                    label = `Audio ${media.extension || "mp3"} (${kbps}kb/s)`;
+                } else if (media.type === 'image') {
+                    label = `Image ${media.extension || "jpg"}`;
+                } else {
+                    let qualityRaw = media.qualityLabel || media.quality || "Unknown";
+                    if (currentPlatform === 'youtube') {
+                        const hasAudio = media.is_audio ? "🔊" : "🔇";
+                        label = `Video ${qualityRaw} (${hasAudio})`;
+                    } else {
+                        label = `Video ${qualityRaw}`;
+                    }
+                }
+
+                return {
+                    label: label,
+                    url: media.url,
+                    size: media.contentLength ? (parseInt(media.contentLength) / (1024 * 1024)).toFixed(1) + "MB" : "Unknown"
+                };
+            })
+        };
+
+        console.log("[AIO] Sukses mengambil data.");
+        res.json(result);
+
+    } catch (error) {
+        console.error("[AIO] Error System:", error.message);
+        // Tampilkan error detail jika ada response dari server sana
+        if (error.response) {
+             console.error("[AIO] Response Data:", error.response.data);
+        }
+        res.status(500).json({ status: false, message: error.message });
+    }
+});
+
+// ... kode-kode API lainnya di atas ...
+
+// ==========================================
+// 6. STREAM PROXY (FORCE DOWNLOAD)
+// ==========================================
+app.get('/api/stream', async (req, res) => {
+    const { url, name } = req.query;
+
+    if (!url) return res.status(400).send("URL diperlukan");
+
+    try {
+        const response = await axios({
+            method: 'GET',
+            url: url,
+            responseType: 'stream',
+            headers: COMMON_HEADERS // Menggunakan header yang sama agar tidak 403
+        });
+
+        // Paksa browser untuk download, bukan play
+        res.setHeader('Content-Disposition', `attachment; filename="${name || 'download'}"`);
+        res.setHeader('Content-Type', response.headers['content-type']);
+
+        response.data.pipe(res);
+    } catch (error) {
+        console.error("Stream Error:", error.message);
+        res.status(500).send("Gagal mengunduh file.");
+    }
+});
+
+// Start Server (Jangan dicopy lagi kalau sudah ada)
+// app.listen(...) 
+
+// ==========================================
+// 2. TEMP MAIL (cmail.js)
+// ==========================================
+app.get('/api/tempmail/create', async (req, res) => {
+    try {
+        const response = await axios.post('https://api.internal.temp-mail.io/api/v3/email/new', 
+            { min_name_length: 10, max_name_length: 10 }, 
+            { headers: { ...COMMON_HEADERS, 'Application-Name': 'web', 'Application-Version': '4.0.0' } }
+        );
+        res.json(response.data);
+    } catch (e) { res.status(500).json({ error: "Gagal membuat email" }); }
+});
+
+app.get('/api/tempmail/inbox/:email', async (req, res) => {
+    try {
+        const { email } = req.params;
+        const response = await axios.get(`https://api.internal.temp-mail.io/api/v3/email/${email}/messages`, 
+            { headers: { ...COMMON_HEADERS, 'Application-Name': 'web' } }
+        );
+        res.json(response.data);
+    } catch (e) { res.json([]); }
+});
+
+// ==========================================
+// 3. BLOG GENERATOR (createblog.js)
+// ==========================================
+app.post('/api/blog', async (req, res) => {
+    const { topic, language } = req.body;
+    // Trik: Menambahkan instruksi bahasa ke dalam topik agar AI merespon sesuai bahasa
+    const finalTopic = `${topic} (Please write strictly in ${language || 'Indonesian'} language)`;
+
+    try {
+        const payload = {
+            topic: finalTopic,
+            targetAudience: "general",
+            tone: "educational",
+            numberOfQuestions: "5",
+            questionTypes: "mixed",
+            includeKeywords: "information",
+            expertiseLevel: "mixed",
+            contentGoal: "educational",
+            industry: ""
+        };
+
+        const response = await axios.post('https://aifreeforever.com/api/generate-blog-faq', payload, { headers: COMMON_HEADERS });
+        
+        if (response.data.success) {
+            res.json({ success: true, content: response.data.faq });
+        } else {
+            res.json({ success: false, message: "API Failed" });
+        }
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ==========================================
+// 4. QURAN (tafsirweb.js)
+// ==========================================
+app.get('/api/quran/list', async (req, res) => {
+    try {
+        const { data } = await axios.get('https://tafsirweb.com/', { headers: COMMON_HEADERS });
+        const $ = cheerio.load(data);
+        const surahList = [];
+
+        $('a').each((i, el) => {
+            const href = $(el).attr('href');
+            if (href && href.includes('surat') && href.includes('.html')) {
+                surahList.push({ name: $(el).text().trim(), url: href });
+            }
+        });
+        res.json(surahList);
+    } catch (e) { res.status(500).json({ error: "Gagal ambil daftar surat" }); }
+});
+
+app.post('/api/quran/detail', async (req, res) => {
+    const { url } = req.body;
+    try {
+        const { data } = await axios.get(url, { headers: COMMON_HEADERS });
+        const $ = cheerio.load(data);
+        let verses = [];
+        let current = { ayat: 0, arab: "", artinya: "" };
+        let counter = 1;
+
+        // Logika scraping disederhanakan dari script aslimu
+        $('.entry-content p, article p').each((i, el) => {
+            let text = $(el).text().trim();
+            if (/[\u0600-\u06FF]/.test(text)) {
+                if (current.arab) { verses.push({ ...current }); current = { ayat: 0, arab: "", artinya: "" }; }
+                current.ayat = counter++;
+                current.arab = text;
+            } else if (text.length > 10 && !text.toLowerCase().includes('latin')) {
+                current.artinya = text.replace(/^Artinya\s*[:]\s*/i, '');
+            }
+        });
+        if (current.arab) verses.push(current);
+
+        res.json(verses);
+    } catch (e) { res.status(500).json({ error: "Gagal ambil ayat" }); }
+});
+
+// ==========================================
+// 5. TXT TO IMG (txt-to-img.js)
+// ==========================================
+app.post('/api/image', async (req, res) => {
+    const { prompt } = req.body;
+    try {
+        const params = new URLSearchParams();
+        params.append('prompt', prompt);
+
+        const response = await axios.post('https://linangdata.com/api-common/stablefusion-v2.php', params, {
+            headers: {
+                ...COMMON_HEADERS,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Origin': 'https://linangdata.com',
+                'Referer': 'https://linangdata.com/'
+            }
+        });
+
+        if (response.data && response.data.image) {
+            res.json({ success: true, image: response.data.image });
+        } else {
+            res.json({ success: false, message: "Gagal generate image" });
+        }
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Start Server
+app.listen(PORT, () => {
+    console.log(`Server HaidarAll berjalan di http://localhost:${PORT}`);
+});
