@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HaidarAll - Multi Tools</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 10px;}
+        .tab-btn { padding: 10px 20px; border: none; background: #e4e6eb; cursor: pointer; border-radius: 5px; white-space: nowrap; }
+        .tab-btn.active { background: #007bff; color: white; }
+        .content { display: none; }
+        .content.active { display: block; }
+        input, select, textarea, button.action-btn { width: 100%; padding: 10px; margin-top: 10px; box-sizing: border-box; }
+        button.action-btn { background: #007bff; color: white; border: none; cursor: pointer; }
+        button.action-btn:hover { background: #0056b3; }
+        .result-box { margin-top: 20px; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; min-height: 50px; word-wrap: break-word; }
+        .surah-item { cursor: pointer; padding: 5px; border-bottom: 1px solid #eee; }
+        .surah-item:hover { background: #f0f0f0; }
+        img.generated-img { max-width: 100%; border-radius: 5px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>HaidarAll Tools</h1>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('downloader')">AIO Downloader</button>
+        <button class="tab-btn" onclick="openTab('blog')">Blog AI</button>
+        <button class="tab-btn" onclick="openTab('quran')">Al-Quran</button>
+        <button class="tab-btn" onclick="openTab('tempmail')">Temp Mail</button>
+        <button class="tab-btn" onclick="openTab('image')">Image Gen</button>
+    </div>
+
+    <div id="downloader" class="content active">
+        <h3>All-in-One Downloader</h3>
+        <p>Support: YouTube, TikTok, IG, FB, Twitter</p>
+        <input type="text" id="dl-url" placeholder="Tempel link video di sini...">
+        <button class="action-btn" onclick="downloadVideo()">Download</button>
+        <div id="dl-result" class="result-box">Hasil akan muncul di sini...</div>
+    </div>
+
+    <div id="blog" class="content">
+        <h3>AI Blog Generator</h3>
+        <input type="text" id="blog-topic" placeholder="Topik Blog (misal: Tips Coding)">
+        <select id="blog-lang">
+            <option value="Indonesian">Bahasa Indonesia</option>
+            <option value="English">English</option>
+            <option value="Javanese">Bahasa Jawa</option>
+        </select>
+        <button class="action-btn" onclick="generateBlog()">Buat Artikel</button>
+        <div id="blog-result" class="result-box"></div>
+    </div>
+
+    <div id="quran" class="content">
+        <h3>TafsirWeb & Quran</h3>
+        <button class="action-btn" onclick="loadSurahList()">Muat Daftar Surat</button>
+        <div id="surah-list" style="max-height: 200px; overflow-y: auto; margin-top:10px; border:1px solid #ddd;"></div>
+        <div id="ayat-container" class="result-box">Pilih surat untuk melihat ayat.</div>
+    </div>
+
+    <div id="tempmail" class="content">
+        <h3>Temporary Email</h3>
+        <button class="action-btn" onclick="createEmail()">Buat Email Baru</button>
+        <div id="email-info" class="result-box">Belum ada email.</div>
+        <button class="action-btn" style="background:#28a745; margin-top:5px;" onclick="checkInbox()">Cek Inbox</button>
+        <div id="inbox-list" class="result-box">Inbox kosong.</div>
+    </div>
+
+    <div id="image" class="content">
+        <h3>Text to Image</h3>
+        <textarea id="img-prompt" rows="3" placeholder="Deskripsi gambar (misal: robot kucing cyberpunk)..."></textarea>
+        <button class="action-btn" onclick="generateImage()">Buat Gambar</button>
+        <div id="img-result" class="result-box"></div>
+    </div>
+</div>
+
+<script>
+    const API = 'http://localhost:3000/api';
+    let currentEmail = '';
+
+    function openTab(id) {
+        document.querySelectorAll('.content').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // --- Downloader ---
+    async function downloadVideo() {
+        const url = document.getElementById('dl-url').value;
+        const resDiv = document.getElementById('dl-result');
+        resDiv.innerHTML = "Sedang memproses...";
+        try {
+            const req = await fetch(`${API}/download`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url })
+            });
+            const res = await req.json();
+            if(!res.title) return resDiv.innerHTML = "Gagal. Cek URL.";
+            
+            let html = `<b>${res.title}</b><br><small>Platform: ${res.platform}</small><hr>`;
+            res.downloads.forEach(d => {
+                html += `<a href="${d.url}" target="_blank" style="display:block; margin:5px 0; color:blue;">Download ${d.label} (${d.size})</a>`;
+            });
+            resDiv.innerHTML = html;
+        } catch (e) { resDiv.innerHTML = "Error: " + e.message; }
+    }
+
+    // --- Blog ---
+    async function generateBlog() {
+        const topic = document.getElementById('blog-topic').value;
+        const lang = document.getElementById('blog-lang').value;
+        const resDiv = document.getElementById('blog-result');
+        resDiv.innerHTML = "Sedang menulis (agak lama)...";
+        
+        try {
+            const req = await fetch(`${API}/blog`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ topic, language: lang })
+            });
+            const res = await req.json();
+            resDiv.innerHTML = res.success ? res.content.replace(/\n/g, '<br>') : "Gagal generate.";
+        } catch(e) { resDiv.innerHTML = "Error."; }
+    }
+
+    // --- Quran ---
+    async function loadSurahList() {
+        const listDiv = document.getElementById('surah-list');
+        listDiv.innerHTML = "Loading...";
+        const req = await fetch(`${API}/quran/list`);
+        const data = await req.json();
+        
+        listDiv.innerHTML = "";
+        data.forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'surah-item';
+            div.innerText = s.name;
+            div.onclick = () => loadAyat(s.url, s.name);
+            listDiv.appendChild(div);
+        });
+    }
+
+    async function loadAyat(url, name) {
+        const cont = document.getElementById('ayat-container');
+        cont.innerHTML = `Memuat ayat untuk ${name}...`;
+        const req = await fetch(`${API}/quran/detail`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ url })
+        });
+        const data = await req.json();
+        let html = `<h3>${name}</h3>`;
+        data.forEach(d => {
+            html += `<p style="text-align:right; font-size:1.2em;"><b>${d.arab}</b></p><p>${d.artinya}</p><hr>`;
+        });
+        cont.innerHTML = html;
+    }
+
+    // --- Temp Mail ---
+    async function createEmail() {
+        const res = await fetch(`${API}/tempmail/create`);
+        const data = await res.json();
+        if(data.email) {
+            currentEmail = data.email;
+            document.getElementById('email-info').innerHTML = `Email: <b>${data.email}</b><br>Token: ${data.token}`;
+        }
+    }
+    
+    async function checkInbox() {
+        if(!currentEmail) return alert("Buat email dulu!");
+        const div = document.getElementById('inbox-list');
+        div.innerHTML = "Cek inbox...";
+        const res = await fetch(`${API}/tempmail/inbox/${currentEmail}`);
+        const msgs = await res.json();
+        if(msgs.length === 0) div.innerHTML = "Belum ada pesan masuk.";
+        else {
+            div.innerHTML = msgs.map(m => `<b>From: ${m.from}</b><br>${m.subject}<br>${m.body_text}<hr>`).join('');
+        }
+    }
+
+    // --- Image ---
+    async function generateImage() {
+        const prompt = document.getElementById('img-prompt').value;
+        const resDiv = document.getElementById('img-result');
+        resDiv.innerHTML = "Sedang menggambar...";
+        
+        const req = await fetch(`${API}/image`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ prompt })
+        });
+        const res = await req.json();
+        if(res.success) {
+            // Cek apakah base64 punya prefix atau tidak
+            let src = res.image.includes('base64') ? res.image : `data:image/png;base64,${res.image}`;
+            resDiv.innerHTML = `<img src="${src}" class="generated-img">`;
+        } else {
+            resDiv.innerHTML = "Gagal.";
+        }
+    }
+</script>
+
+</body>
+</html>
